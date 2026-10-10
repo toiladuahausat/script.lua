@@ -1,0 +1,266 @@
+-- 🔥 Thạnh Script (No Key - Clean) 🔥
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local Player = Players.LocalPlayer
+local Character, Humanoid, HRP
+
+local Flying = false
+local InfiniteJump = false
+local Invisible = false
+local NoClip = false
+local FlySpeed = 50
+local BodyVelocity, BodyGyro
+local originalTransparency = {}
+local FlyKeys = {W=false, A=false, S=false, D=false, Space=false, Shift=false}
+
+_G.WalkSpeed = 16
+_G.JumpPower = 50
+
+-- UI
+local ScreenGui = Instance.new("ScreenGui", Player.PlayerGui)
+ScreenGui.Name = "ThanhScript"
+ScreenGui.ResetOnSpawn = false
+
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.new(0, 280, 0, 420)
+Main.Position = UDim2.new(0.05, 0, 0.2, 0)
+Main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Main.Active = true
+Main.Draggable = true
+Main.BorderSizePixel = 0
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
+
+local Stroke = Instance.new("UIStroke", Main)
+Stroke.Color = Color3.fromRGB(0, 170, 255)
+Stroke.Thickness = 2
+
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.BackgroundTransparency = 1
+Title.Text = "🔥 Thạnh Script"
+Title.TextColor3 = Color3.fromRGB(0, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18
+
+local Content = Instance.new("ScrollingFrame", Main)
+Content.Size = UDim2.new(1, -10, 1, -45)
+Content.Position = UDim2.new(0, 5, 0, 40)
+Content.BackgroundTransparency = 1
+Content.ScrollBarThickness = 3
+Content.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Content.BorderSizePixel = 0
+
+local List = Instance.new("UIListLayout", Content)
+List.Padding = UDim.new(0, 6)
+List.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Hàm tạo ô nhập số
+local function CreateInput(name, default, callback)
+    local frame = Instance.new("Frame", Content)
+    frame.Size = UDim2.new(1, 0, 0, 48)
+    frame.BackgroundTransparency = 1
+    frame.LayoutOrder = #Content:GetChildren()
+
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(1, 0, 0, 16)
+    label.BackgroundTransparency = 1
+    label.Text = name
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 13
+    label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local box = Instance.new("TextBox", frame)
+    box.Size = UDim2.new(1, 0, 0, 26)
+    box.Position = UDim2.new(0, 0, 0, 20)
+    box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    box.TextColor3 = Color3.new(1, 1, 1)
+    box.Font = Enum.Font.GothamBold
+    box.TextSize = 14
+    box.Text = tostring(default)
+    box.ClearTextOnFocus = false
+    box.BorderSizePixel = 0
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
+
+    box.FocusLost:Connect(function()
+        local num = tonumber(box.Text)
+        if num then
+            callback(num)
+            box.Text = tostring(num)
+        else
+            box.Text = tostring(default)
+        end
+    end)
+end
+
+-- Hàm tạo nút
+local function CreateButton(text)
+    local btn = Instance.new("TextButton", Content)
+    btn.Size = UDim2.new(1, 0, 0, 32)
+    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 13
+    btn.Text = text
+    btn.AutoButtonColor = true
+    btn.BorderSizePixel = 0
+    btn.LayoutOrder = #Content:GetChildren()
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+    return btn
+end
+
+-- Tạo các ô nhập số
+CreateInput("🏃 Tốc độ chạy", 16, function(v)
+    _G.WalkSpeed = v
+    if Humanoid then Humanoid.WalkSpeed = v end
+end)
+
+CreateInput("🦘 Sức nhảy", 50, function(v)
+    _G.JumpPower = v
+    if Humanoid then
+        Humanoid.UseJumpPower = true
+        Humanoid.JumpPower = v
+    end
+end)
+
+CreateInput("🕊️ Tốc độ bay", 50, function(v)
+    FlySpeed = v
+end)
+
+CreateInput("🌍 Trọng lực", 196.2, function(v)
+    Workspace.Gravity = v
+end)
+
+-- Tạo các nút
+local FlyBtn = CreateButton("🕊️ Bay: OFF")
+local JumpBtn = CreateButton("🦘 Nhảy vô hạn: OFF")
+local InvisBtn = CreateButton("👻 Tàng hình: OFF")
+local NoclipBtn = CreateButton("🚪 Xuyên tường: OFF")
+
+-- Character
+local function LoadCharacter(char)
+    Character = char
+    Humanoid = char:WaitForChild("Humanoid")
+    HRP = char:WaitForChild("HumanoidRootPart")
+    Humanoid.UseJumpPower = true
+    Humanoid.WalkSpeed = _G.WalkSpeed
+    Humanoid.JumpPower = _G.JumpPower
+
+    originalTransparency = {}
+    for _, v in pairs(Character:GetDescendants()) do
+        if v:IsA("BasePart") or v:IsA("Decal") then
+            originalTransparency[v] = v.Transparency
+        end
+    end
+end
+
+LoadCharacter(Player.Character or Player.CharacterAdded:Wait())
+Player.CharacterAdded:Connect(LoadCharacter)
+
+-- Bay
+local function UpdateFly()
+    if Flying and BodyVelocity and BodyGyro and HRP then
+        local cam = Workspace.CurrentCamera
+        local dir = Vector3.zero
+        if FlyKeys.W then dir += cam.CFrame.LookVector end
+        if FlyKeys.S then dir -= cam.CFrame.LookVector end
+        if FlyKeys.A then dir -= cam.CFrame.RightVector end
+        if FlyKeys.D then dir += cam.CFrame.RightVector end
+        if FlyKeys.Space then dir += Vector3.new(0, 1, 0) end
+        if FlyKeys.Shift then dir -= Vector3.new(0, 1, 0) end
+        if dir.Magnitude > 0 then dir = dir.Unit * FlySpeed end
+        BodyVelocity.Velocity = dir
+        BodyGyro.CFrame = cam.CFrame
+    end
+end
+
+RunService.RenderStepped:Connect(UpdateFly)
+
+UIS.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if Flying then
+        if input.KeyCode == Enum.KeyCode.W then FlyKeys.W = true end
+        if input.KeyCode == Enum.KeyCode.A then FlyKeys.A = true end
+        if input.KeyCode == Enum.KeyCode.S then FlyKeys.S = true end
+        if input.KeyCode == Enum.KeyCode.D then FlyKeys.D = true end
+        if input.KeyCode == Enum.KeyCode.Space then FlyKeys.Space = true end
+        if input.KeyCode == Enum.KeyCode.LeftShift then FlyKeys.Shift = true end
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.W then FlyKeys.W = false end
+    if input.KeyCode == Enum.KeyCode.A then FlyKeys.A = false end
+    if input.KeyCode == Enum.KeyCode.S then FlyKeys.S = false end
+    if input.KeyCode == Enum.KeyCode.D then FlyKeys.D = false end
+    if input.KeyCode == Enum.KeyCode.Space then FlyKeys.Space = false end
+    if input.KeyCode == Enum.KeyCode.LeftShift then FlyKeys.Shift = false end
+end)
+
+-- Nút chức năng
+FlyBtn.MouseButton1Click:Connect(function()
+    Flying = not Flying
+    if Flying and HRP then
+        BodyVelocity = Instance.new("BodyVelocity", HRP)
+        BodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+        BodyGyro = Instance.new("BodyGyro", HRP)
+        BodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+    else
+        if BodyVelocity then BodyVelocity:Destroy() end
+        if BodyGyro then BodyGyro:Destroy() end
+        FlyKeys = {W=false, A=false, S=false, D=false, Space=false, Shift=false}
+    end
+    FlyBtn.Text = "🕊️ Bay: " .. (Flying and "ON" or "OFF")
+end)
+
+JumpBtn.MouseButton1Click:Connect(function()
+    InfiniteJump = not InfiniteJump
+    JumpBtn.Text = "🦘 Nhảy vô hạn: " .. (InfiniteJump and "ON" or "OFF")
+end)
+
+UIS.JumpRequest:Connect(function()
+    if InfiniteJump and Humanoid then
+        Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end)
+
+InvisBtn.MouseButton1Click:Connect(function()
+    Invisible = not Invisible
+    for part, trans in pairs(originalTransparency) do
+        if part and part.Parent then
+            part.Transparency = Invisible and 1 or trans
+        end
+    end
+    InvisBtn.Text = "👻 Tàng hình: " .. (Invisible and "ON" or "OFF")
+end)
+
+NoclipBtn.MouseButton1Click:Connect(function()
+    NoClip = not NoClip
+    NoclipBtn.Text = "🚪 Xuyên tường: " .. (NoClip and "ON" or "OFF")
+end)
+
+RunService.Stepped:Connect(function()
+    if NoClip and Character then
+        for _, v in pairs(Character:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- Phím tắt
+UIS.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.F then FlyBtn.MouseButton1Click:Fire() end
+    if input.KeyCode == Enum.KeyCode.J then JumpBtn.MouseButton1Click:Fire() end
+    if input.KeyCode == Enum.KeyCode.V then InvisBtn.MouseButton1Click:Fire() end
+    if input.KeyCode == Enum.KeyCode.N then NoclipBtn.MouseButton1Click:Fire() end
+end)
+
+print("Thạnh Script Clean đã load!")
+print("Phím tắt: F = Bay | J = Nhảy vô hạn | V = Tàng hình | N = Xuyên tường")
